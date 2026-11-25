@@ -2,12 +2,12 @@ import fs from "fs/promises";
 import path from "path";
 
 const DATA_PATH = path.resolve("data/reminders.json");
-const WA_API_URL = process.env.WA_API_URL;
+const WA_API_URL = process.env.WA_API_URL || "https://api.fonnte.com/send";
 const WA_API_TOKEN = process.env.WA_API_TOKEN;
 
 async function run() {
-  if (!WA_API_URL) {
-    throw new Error("WA_API_URL belum diatur.");
+  if (!WA_API_TOKEN) {
+    throw new Error("WA_API_TOKEN belum diatur di GitHub Secrets.");
   }
 
   const raw = await fs.readFile(DATA_PATH, "utf-8");
@@ -25,7 +25,7 @@ async function run() {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(WA_API_TOKEN ? { Authorization: `Bearer ${WA_API_TOKEN}` } : {})
+          Authorization: WA_API_TOKEN
         },
         body: JSON.stringify({
           target: item.target,
@@ -33,9 +33,17 @@ async function run() {
         })
       });
 
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`Gagal mengirim [${item.id}]: ${response.status} - ${errText}`);
+      const responseText = await response.text();
+      let parsed = null;
+      try {
+        parsed = JSON.parse(responseText);
+      } catch {
+        // Biarkan tetap teks jika respons bukan JSON murni
+      }
+
+      const apiFailed = !response.ok || (parsed && parsed.status === false);
+      if (apiFailed) {
+        console.error(`Gagal mengirim [${item.id}]: ${response.status} - ${responseText}`);
         continue;
       }
 
