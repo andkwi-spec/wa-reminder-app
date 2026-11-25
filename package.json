@@ -1,0 +1,9 @@
+{
+  "name": "wa-reminder-app",
+  "version": "1.0.0",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "send-reminders": "node scripts/send-reminders.js"
+  }
+}
