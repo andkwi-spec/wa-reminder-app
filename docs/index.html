@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Reminder Generator</title>
+  <style>
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      max-width: 720px;
+      margin: 2rem auto;
+      padding: 0 1rem;
+      line-height: 1.5;
+      color: #1f2937;
+    }
+    label {
+      display: block;
+      font-weight: 600;
+      margin-top: 0.9rem;
+      margin-bottom: 0.25rem;
+    }
+    input, textarea, button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 0.6rem 0.75rem;
+      font-size: 0.95rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+    }
+    button {
+      margin-top: 1rem;
+      background: #111827;
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    button.secondary {
+      background: #fff;
+      color: #111827;
+      margin-top: 0.5rem;
+    }
+    pre {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.85rem;
+    }
+    .row {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .row button {
+      width: auto;
+      flex: 1;
+    }
+  </style>
+</head>
+<body>
+  <h1>WA Reminder Builder</h1>
+  <p>Buat daftar jadwal pengingat, lalu salin hasilnya ke <code>data/reminders.json</code> di repositori GitHub.</p>
+
+  <button type="button" class="secondary" id="loadRepoBtn">Muat data/reminders.json dari Repo</button>
+
+  <form id="reminderForm">
+    <label for="target">Nomor WA Tujuan (format internasional, misal: 6281234567890)</label>
+    <input id="target" type="text" required placeholder="6281234567890" />
+
+    <label for="sendAt">Waktu Kirim</label>
+    <input id="sendAt" type="datetime-local" required />
+
+    <label for="message">Isi Pesan Reminder</label>
+    <textarea id="message" rows="3" required placeholder="Contoh: Saatnya cek progress proyek."></textarea>
+
+    <button type="submit">Tambahkan ke Daftar</button>
+  </form>
+
+  <label for="jsonOutput">Output JSON (Salin ke <code>data/reminders.json</code>)</label>
+  <pre id="jsonOutput">[]</pre>
+
+  <div class="row">
+    <button type="button" id="copyBtn">Salin JSON</button>
+    <button type="button" class="secondary" id="clearBtn">Kosongkan Daftar</button>
+  </div>
+
+  <script>
+    let reminders = [];
+    const outputEl = document.getElementById("jsonOutput");
+
+    function render() {
+      outputEl.textContent = JSON.stringify(reminders, null, 2);
+    }
+
+    // Konversi datetime-local (waktu lokal browser) ke ISO string dengan offset zona waktu
+    function toLocalIsoWithOffset(localInputValue) {
+      const date = new Date(localInputValue);
+      const offsetMin = -date.getTimezoneOffset();
+      const sign = offsetMin >= 0 ? "+" : "-";
+      const absMin = Math.abs(offsetMin);
+      const pad = (n) => String(n).padStart(2, "0");
+      const hh = pad(Math.floor(absMin / 60));
+      const mm = pad(absMin % 60);
+
+      return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}:00${sign}${hh}:${mm}`;
+    }
+
+    document.getElementById("reminderForm").addEventListener("submit", (e) => {
+      e.preventDefault();
+      const target = document.getElementById("target").value.trim();
+      const sendAtRaw = document.getElementById("sendAt").value;
+      const message = document.getElementById("message").value.trim();
+
+      if (!target || !sendAtRaw || !message) return;
+
+      reminders.push({
+        id: "rem-" + Date.now(),
+        target,
+        message,
+        sendAt: toLocalIsoWithOffset(sendAtRaw),
+        sent: false
+      });
+
+      render();
+      e.target.reset();
+    });
+
+    document.getElementById("copyBtn").addEventListener("click", async () => {
+      await navigator.clipboard.writeText(outputEl.textContent);
+      alert("JSON berhasil disalin ke clipboard.");
+    });
+
+    document.getElementById("clearBtn").addEventListener("click", () => {
+      reminders = [];
+      render();
+    });
+
+    document.getElementById("loadRepoBtn").addEventListener("click", async () => {
+      try {
+        const res = await fetch("../data/reminders.json?t=" + Date.now());
+        if (!res.ok) throw new Error("File tidak ditemukan atau repo masih private.");
+        const data = await res.json();
+        if (Array.isArray(data)) {
+          reminders = data;
+          render();
+        }
+      } catch (err) {
+        alert("Gagal memuat data/reminders.json: " + err.message);
+      }
+    });
+
+    render();
+  </script>
+</body>
+</html>
